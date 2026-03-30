@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bejelentkezés - QuickHire</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="auth-page">
+
+<div class="auth-card">
+    <div class="card">
+        <h1>Bejelentkezés</h1>
+        <p class="subtitle">Jelentkezz be a fiókodba</p>
+
+        <div class="tabs">
+            <button type="button" class="tab active" data-tab="employee" onclick="switchTab('employee')">Munkavállaló</button>
+            <button type="button" class="tab" data-tab="employer" onclick="switchTab('employer')">Munkáltató</button>
+            <button type="button" class="tab" data-tab="admin" onclick="switchTab('admin')">Adminisztrátor</button>
+        </div>
+
+        <!-- Munkavállaló bejelentkezés -->
+        <div id="tab-employee" class="tab-content active">
+            <form onsubmit="handleLogin(event, 'employee')">
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <input type="email" id="emp-email" required>
+                </div>
+                <div class="form-group">
+                    <label>Jelszó</label>
+                    <input type="password" id="emp-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Bejelentkezés</button>
+            </form>
+        </div>
+
+        <!-- Munkáltató bejelentkezés -->
+        <div id="tab-employer" class="tab-content">
+            <form onsubmit="handleLogin(event, 'employer')">
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <input type="email" id="emr-email" required>
+                </div>
+                <div class="form-group">
+                    <label>Jelszó</label>
+                    <input type="password" id="emr-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Bejelentkezés</button>
+            </form>
+        </div>
+
+        <!-- Admin bejelentkezés -->
+        <div id="tab-admin" class="tab-content">
+            <p class="subtitle" style="margin-top:0;margin-bottom:1rem;font-size:0.9rem;">Admin fiók az adatbázisban van létrehozva; regisztráció nem elérhető.</p>
+            <form onsubmit="handleLogin(event, 'admin')">
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <input type="email" id="admin-email" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label>Jelszó</label>
+                    <input type="password" id="admin-password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Bejelentkezés</button>
+            </form>
+        </div>
+
+        <div class="auth-footer">
+            Nincs még fiókod? <a href="register.html">Regisztrálj itt</a>
+        </div>
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+    function switchTab(tab) {
+        document.querySelectorAll('.tab').forEach(function(t) {
+            t.classList.toggle('active', t.getAttribute('data-tab') === tab);
+        });
+        document.querySelectorAll('.tab-content').forEach(function(c) {
+            c.classList.toggle('active', c.id === 'tab-' + tab);
+        });
+    }
+
+    async function handleLogin(event, role) {
+        event.preventDefault();
+
+        var email, jelszo;
+        if (role === 'employee') {
+            email = document.getElementById('emp-email').value;
+            jelszo = document.getElementById('emp-password').value;
+        } else if (role === 'employer') {
+            email = document.getElementById('emr-email').value;
+            jelszo = document.getElementById('emr-password').value;
+        } else {
+            email = document.getElementById('admin-email').value;
+            jelszo = document.getElementById('admin-password').value;
+        }
+
+        var data = await apiPost('login.php', {
+            role: role,
+            email: email,
+            jelszo: jelszo
+        });
+
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(function() {
+                if (role === 'employer') {
+                    window.location.href = 'employer.html';
+                } else if (role === 'admin') {
+                    window.location.href = 'admin.html';
+                } else {
+                    window.location.href = 'index.html';
+                }
+            }, 800);
+        } else {
+            var msg = data.errors ? data.errors.join(', ') : data.message;
+            showToast(msg, 'error');
+        }
+    }
+
+    // Ha már be van jelentkezve, irányítsuk tovább
+    checkSession().then(function(user) {
+        if (user) {
+            if (user.role === 'employer') {
+                window.location.href = 'employer.html';
+            } else if (user.role === 'admin') {
+                window.location.href = 'admin.html';
+            } else {
+                window.location.href = 'index.html';
+            }
+        }
+    });
+</script>
+
+</body>
+</html>

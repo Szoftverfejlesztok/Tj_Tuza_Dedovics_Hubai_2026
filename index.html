@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickHire - Állásportál</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="has-fixed-footer">
+
+<nav id="navbar" class="navbar"></nav>
+
+<div class="page-content">
+    <!-- Hero szekció -->
+    <section class="hero">
+        <h1>Találd meg az ideális munkát!</h1>
+        <p>Böngéssz állásajánlatok között, vagy hirdess munkát munkáltatóként.</p>
+    </section>
+
+    <div class="container">
+        <!-- AI ajánlások váltó (csak bejelentkezett munkavállalóknak) -->
+        <div id="viewTabs" class="view-tabs hidden">
+            <button class="view-tab active" data-view="all">Összes állás</button>
+            <button class="view-tab" data-view="ai">Nekem ajánlott</button>
+        </div>
+
+        <!-- Szűrők (csak "Összes állás" nézetben látható) -->
+        <div id="filterBar" class="filter-bar">
+            <div class="filter-group">
+                <label>Keresés</label>
+                <input type="text" id="searchInput" placeholder="Állás neve vagy leírása...">
+            </div>
+            <div class="filter-group">
+                <label>Helyszín</label>
+                <select id="filterLocation">
+                    <option value="">Összes</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Munka típusa</label>
+                <select id="filterType">
+                    <option value="">Összes</option>
+                    <option value="Teljes munkaidő">Teljes munkaidő</option>
+                    <option value="Részmunkaidő">Részmunkaidő</option>
+                    <option value="Szerződéses">Szerződéses</option>
+                    <option value="Szabadúszó">Szabadúszó</option>
+                    <option value="Gyakornoki">Gyakornoki</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Munkavégzés</label>
+                <select id="filterMode">
+                    <option value="">Összes</option>
+                    <option value="Helyszíni">Helyszíni</option>
+                    <option value="Távoli">Távoli</option>
+                    <option value="Hibrid">Hibrid</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- AI eredmények címke (csak "Nekem ajánlott" nézetben) -->
+        <p id="aiResultsLabel" class="results-label hidden">AI ajánlások a profilod alapján</p>
+
+        <!-- Állások -->
+        <div id="jobsContainer" class="jobs-grid">
+            <div class="empty-state"><p>Betöltés...</p></div>
+        </div>
+    </div>
+</div>
+
+<footer class="footer">
+    &copy; 2026 QuickHire - Minden jog fenntartva.
+</footer>
+
+<script src="js/api.js"></script>
+<script>
+    var allJobs = [];
+    var currentView = 'all';  // 'all' vagy 'ai'
+
+    // Állások betöltése az API-ból
+    async function loadJobs() {
+        var data = await apiGet('jobs.php');
+        if (data.success) {
+            allJobs = data.jobs;
+            fillLocationFilter();
+            if (currentView === 'all') {
+                renderJobs(allJobs);
+            } else {
+                loadAiMatches();
+            }
+        } else {
+            document.getElementById('jobsContainer').innerHTML =
+                '<div class="empty-state"><p>Hiba az állások betöltésekor.</p></div>';
+        }
+    }
+
+    // AI ajánlások betöltése (csak munkavállalóknak)
+    async function loadAiMatches() {
+        var container = document.getElementById('jobsContainer');
+        container.innerHTML = '<div class="empty-state"><p>AI ajánlások betöltése...</p></div>';
+
+        var data = await apiGet('match.php');
+        if (!data.success) {
+            showToast(data.message || 'Az AI ajánlások betöltése sikertelen.', 'error');
+            container.innerHTML = '<div class="empty-state"><p>' + escapeHtml(data.message || 'Hiba.') + '</p></div>';
+            return;
+        }
+
+        var matches = data.matches || [];
+        if (matches.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>Nincs ajánlott állás a profilod alapján.</p></div>';
+            return;
+        }
+
+        // Összekapcsolás allJobs-szal a teljes adatokért
+        var jobsWithScores = matches.map(function(m) {
+            var fullJob = allJobs.find(function(j) { return j.id == m.job_id; });
+            return {
+                job: fullJob || { id: m.job_id, megnevezes: m.megnevezes, helyszin: m.helyszin, fizetes: m.fizetes, munka_tipus: m.munka_tipus, leiras: '', munkaltato_nev: null, munkakezdes: null, elvart_tapasztalat: null, munkavegzes_modja: null },
+                score: m.score
+            };
+        });
+
+        renderJobsWithScores(jobsWithScores);
+    }
+
+    // Helyszín szűrő feltöltése az elérhető helyszínekkel
+    function fillLocationFilter() {
+        var locations = [];
+        var seen = {};
+        allJobs.forEach(function(j) {
+            if (j.helyszin && !seen[j.helyszin]) {
+                seen[j.helyszin] = true;
+                locations.push(j.helyszin);
+            }
+        });
+        locations.sort();
+
+        var select = document.getElementById('filterLocation');
+        locations.forEach(function(loc) {
+            var opt = document.createElement('option');
+            opt.value = loc;
+            opt.textContent = loc;
+            select.appendChild(opt);
+        });
+    }
+
+    // Álláskártyák megjelenítése (normál lista)
+    function renderJobs(jobs) {
+        var container = document.getElementById('jobsContainer');
+
+        if (jobs.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>Nincs találat a megadott szűrőkre.</p></div>';
+            return;
+        }
+
+        var html = '';
+        jobs.slice(0, 15).forEach(function(job) {
+            html += buildJobCard(job, null);
+        });
+
+        container.innerHTML = html;
+    }
+
+    // Álláskártyák megjelenítése AI pontszámmal
+    function renderJobsWithScores(jobsWithScores) {
+        var container = document.getElementById('jobsContainer');
+
+        if (jobsWithScores.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>Nincs ajánlott állás.</p></div>';
+            return;
+        }
+
+        var html = '';
+        jobsWithScores.forEach(function(item) {
+            html += buildJobCard(item.job, item.score);
+        });
+
+        container.innerHTML = html;
+    }
+
+    // Pontszám szint alapján CSS osztály (70+ zöld, 40-69 sárga, 40 alatt piros)
+    function getScoreClass(score) {
+        if (score >= 70) return 'score-high';
+        if (score >= 40) return 'score-medium';
+        return 'score-low';
+    }
+
+    // Egy állás kártya HTML generálása (opcionális score badge)
+    function buildJobCard(job, score) {
+        var scoreBadge = '';
+        var cardClass = 'card';
+        if (score !== null && score !== undefined) {
+            var scoreClass = getScoreClass(score);
+            scoreBadge = '<span class="match-score ' + scoreClass + '">' + score + '% egyezés</span>';
+            cardClass += ' card--ai-rec';
+        }
+        return '<div class="' + cardClass + '">' +
+            '<div class="card-header-row">' +
+                '<div class="card-title">' + escapeHtml(job.megnevezes) + '</div>' +
+                scoreBadge +
+            '</div>' +
+            '<p class="card-text"><strong>Fizetés:</strong> ' + formatSalary(job.fizetes) + '</p>' +
+            '<p class="card-text"><strong>Helyszín:</strong> ' + escapeHtml(job.helyszin) + '</p>' +
+            '<p class="card-text"><strong>Típus:</strong> ' + escapeHtml(job.munka_tipus || '-') + '</p>' +
+            '<p class="card-text"><strong>Tapasztalat:</strong> ' + escapeHtml(job.elvart_tapasztalat || '-') + '</p>' +
+            '<p class="card-text"><strong>Munkavégzés:</strong> ' + escapeHtml(job.munkavegzes_modja || '-') + '</p>' +
+            '<p class="card-text"><strong>Kezdés:</strong> ' + formatDate(job.munkakezdes) + '</p>' +
+            (job.munkaltato_nev ? '<p class="card-text"><strong>Cég:</strong> ' + escapeHtml(job.munkaltato_nev) + '</p>' : '') +
+            '<p class="card-text mt-1">' + escapeHtml(job.leiras || '') + '</p>' +
+            '<div class="card-job-footer">' +
+                '<button class="btn btn-primary btn-block" onclick="applyToJob(' + job.id + ')">Jelentkezés</button>' +
+            '</div>' +
+        '</div>';
+    }
+
+    // Jelentkezés gomb kezelése
+    async function applyToJob(jobId) {
+        if (!currentUser) {
+            showToast('Jelentkezz be a jelentkezéshez!', 'error');
+            setTimeout(function() { window.location.href = 'login.html'; }, 1500);
+            return;
+        }
+        if (currentUser.role !== 'employee') {
+            showToast('Csak munkavállalók jelentkezhetnek.', 'error');
+            return;
+        }
+
+        var data = await apiPost('apply.php', { job_id: jobId });
+        showToast(data.message, data.success ? 'success' : 'error');
+    }
+
+    // Keresés a címben: minden keresőszó egy-egy szó elejével egyezik (megnevezés, nem leírás).
+    function titleMatchesPrefixWords(megnevezés, searchLower) {
+        var q = (searchLower || '').trim();
+        if (!q) return true;
+        var queryWords = q.split(/\s+/).filter(Boolean);
+        var titleWords = (megnevezés || '').toLowerCase().split(/\s+/).filter(Boolean);
+        return queryWords.every(function(qw) {
+            return titleWords.some(function(tw) {
+                return tw.indexOf(qw) === 0;
+            });
+        });
+    }
+
+    // Szűrés (kliens oldalon, csak "Összes állás" nézetben)
+    function filterJobs() {
+        if (currentView !== 'all') return;
+
+        var search = document.getElementById('searchInput').value.toLowerCase();
+        var location = document.getElementById('filterLocation').value;
+        var type = document.getElementById('filterType').value;
+        var mode = document.getElementById('filterMode').value;
+
+        var filtered = allJobs.filter(function(job) {
+            if (search && !titleMatchesPrefixWords(job.megnevezes, search)) return false;
+            if (location && job.helyszin !== location) return false;
+            if (type && job.munka_tipus !== type) return false;
+            if (mode && job.munkavegzes_modja !== mode) return false;
+            return true;
+        });
+
+        renderJobs(filtered);
+    }
+
+    // Nézet váltás (Összes / Nekem ajánlott)
+    function switchView(view) {
+        currentView = view;
+        var tabs = document.querySelectorAll('.view-tab');
+        tabs.forEach(function(t) {
+            t.classList.toggle('active', t.getAttribute('data-view') === view);
+        });
+
+        var filterBar = document.getElementById('filterBar');
+        var aiLabel = document.getElementById('aiResultsLabel');
+        if (view === 'all') {
+            filterBar.classList.remove('hidden');
+            aiLabel.classList.add('hidden');
+            filterJobs();
+        } else {
+            filterBar.classList.add('hidden');
+            aiLabel.classList.remove('hidden');
+            loadAiMatches();
+        }
+    }
+
+    // Szűrők eseménykezelése
+    document.getElementById('searchInput').addEventListener('input', filterJobs);
+    document.getElementById('filterLocation').addEventListener('change', filterJobs);
+    document.getElementById('filterType').addEventListener('change', filterJobs);
+    document.getElementById('filterMode').addEventListener('change', filterJobs);
+
+    // Oldal indítása
+    (async function init() {
+        await renderNavbar();
+
+        // AI nézet fül megjelenítése munkavállalóknak
+        var tabsEl = document.getElementById('viewTabs');
+        if (currentUser && currentUser.role === 'employee') {
+            tabsEl.classList.remove('hidden');
+            tabsEl.querySelectorAll('.view-tab').forEach(function(btn) {
+                btn.onclick = function() {
+                    switchView(btn.getAttribute('data-view'));
+                };
+            });
+        }
+
+        loadJobs();
+    })();
+</script>
+
+</body>
+</html>

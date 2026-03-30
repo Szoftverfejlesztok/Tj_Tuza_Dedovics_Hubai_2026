@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vezérlőpult - QuickHire</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* --- Munkáltatói vezérlőpult: csak ezen az oldalon érvényes --- */
+        .employer-dashboard .employer-ai-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 8px;
+        }
+        .employer-dashboard .employer-ai-toolbar .form-group {
+            flex: 1;
+            min-width: 200px;
+            margin-bottom: 0;
+        }
+
+        .employer-dashboard .employer-ai-results {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 16px;
+            padding: 12px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .employer-dashboard .employer-ai-candidate.list-item {
+            align-items: flex-start;
+            padding: 14px 16px;
+            margin: 0;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+            gap: 14px;
+        }
+
+        .employer-dashboard .employer-ai-candidate .match-score {
+            padding: 5px 12px;
+            font-size: 0.82rem;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+        }
+
+        /* AI indoklás: chip megjelenítés */
+        .employer-dashboard .ai-reasons-block {
+            font-size: 0.85rem;
+            margin-top: 0.35rem;
+        }
+        .employer-dashboard .ai-reasons-block .ai-reasons-title {
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+            color: #64748b;
+        }
+        .employer-dashboard .ai-reasons-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px 8px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        .employer-dashboard .ai-reason-chip {
+            display: inline-block;
+            max-width: 100%;
+            padding: 4px 9px;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            color: #475569;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            word-break: break-word;
+        }
+
+        .employer-dashboard .employer-applications-section .employer-applications-body {
+            padding-top: 4px;
+        }
+
+        .employer-dashboard .employer-applications-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .employer-dashboard .employer-app-row.list-item {
+            align-items: flex-start;
+            padding: 14px 16px;
+            margin: 0;
+            background: #fafbfc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            gap: 14px;
+        }
+
+        .employer-dashboard .employer-app-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .employer-dashboard .employer-app-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .employer-dashboard .employer-app-actions-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .employer-dashboard .employer-app-status-select {
+            min-width: 11rem;
+            max-width: 100%;
+            padding: 6px 8px;
+            font-size: 0.85rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+
+        .employer-dashboard .employer-interju-input {
+            padding: 6px 8px;
+            font-size: 0.85rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+
+        .employer-dashboard .employer-app-label {
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 768px) {
+            .employer-dashboard .employer-ai-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .employer-dashboard .employer-ai-toolbar .form-group {
+                min-width: 0;
+                width: 100%;
+            }
+            .employer-dashboard .employer-ai-toolbar > .btn {
+                width: 100%;
+            }
+            .employer-dashboard .employer-app-actions {
+                align-items: stretch;
+                width: 100%;
+            }
+            .employer-dashboard .employer-app-actions-row {
+                justify-content: flex-start;
+            }
+            .employer-dashboard .employer-ai-candidate .match-score {
+                font-size: 0.78rem;
+            }
+        }
+    </style>
+</head>
+<body class="employer-dashboard has-fixed-footer">
+
+<nav id="navbar" class="navbar"></nav>
+
+<div class="page-content">
+    <div class="container">
+        <h1 class="mb-3">Munkáltatói Vezérlőpult</h1>
+
+        <!-- Új álláshirdetés feladása -->
+        <div class="card mb-3">
+            <h2 class="card-title">Új álláshirdetés feladása</h2>
+            <form onsubmit="postJob(event)">
+                <div class="form-group">
+                    <label>Megnevezés *</label>
+                    <input type="text" id="j-title" required>
+                </div>
+                <div class="form-group">
+                    <label>Leírás *</label>
+                    <textarea id="j-desc" rows="4" required></textarea>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Fizetés (Ft) *</label>
+                        <input type="number" id="j-salary" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Helyszín *</label>
+                        <input type="text" id="j-location" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Munka típusa</label>
+                        <select id="j-type">
+                            <option value="">Válassz...</option>
+                            <option value="Teljes munkaidő">Teljes munkaidő</option>
+                            <option value="Részmunkaidő">Részmunkaidő</option>
+                            <option value="Szerződéses">Szerződéses</option>
+                            <option value="Szabadúszó">Szabadúszó</option>
+                            <option value="Gyakornoki">Gyakornoki</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Elvárt tapasztalat</label>
+                        <input type="text" id="j-exp" placeholder="pl. 3 év">
+                    </div>
+                    <div class="form-group">
+                        <label>Munkavégzés módja</label>
+                        <select id="j-mode">
+                            <option value="">Válassz...</option>
+                            <option value="Helyszíni">Helyszíni</option>
+                            <option value="Távoli">Távoli</option>
+                            <option value="Hibrid">Hibrid</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Munkakezdés</label>
+                        <input type="date" id="j-start">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Álláshirdetés feladása</button>
+            </form>
+        </div>
+
+        <!-- AI jelölt rangsorolás -->
+        <div class="card mb-3">
+            <h2 class="card-title">Legjobb jelöltek AI alapján</h2>
+            <p class="text-muted mb-2">Válaszd ki az egyik állásodat, és az AI megmutatja a legjobban illeszkedő jelölteket.</p>
+
+            <div class="employer-ai-toolbar">
+                <div class="form-group">
+                    <label>Állás kiválasztása</label>
+                    <select id="ai-job-select">
+                        <option value="">Betöltés...</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="loadAiCandidates()" id="ai-search-btn" disabled>
+                    Jelöltek keresése
+                </button>
+            </div>
+
+            <div id="aiCandidatesContainer" class="mt-2"></div>
+        </div>
+
+        <!-- Beérkezett jelentkezések -->
+        <div class="card mb-3 employer-applications-section">
+            <h2 class="card-title">Beérkezett jelentkezések</h2>
+            <div id="applicationsList" class="employer-applications-body">
+                <div class="empty-state"><p>Betöltés...</p></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="footer">
+    &copy; 2026 QuickHire - Minden jog fenntartva.
+</footer>
+
+<script src="js/api.js"></script>
+<script>
+    async function loadMyJobs() {
+        var select = document.getElementById('ai-job-select');
+        var btn = document.getElementById('ai-search-btn');
+
+        var data = await apiGet('employer-match.php');
+
+        if (!data.success || !data.jobs || data.jobs.length === 0) {
+            select.innerHTML = '<option value="">Nincs feladott állásod</option>';
+            return;
+        }
+
+        var html = '<option value="">Válassz állást...</option>';
+        data.jobs.forEach(function(job) {
+            html += '<option value="' + job.id + '">' + escapeHtml(job.megnevezes) + '</option>';
+        });
+        select.innerHTML = html;
+
+        select.addEventListener('change', function() {
+            btn.disabled = !select.value;
+        });
+    }
+
+    async function loadAiCandidates() {
+        var jobId = document.getElementById('ai-job-select').value;
+        var container = document.getElementById('aiCandidatesContainer');
+
+        if (!jobId) {
+            showToast('Válassz ki egy állást!', 'error');
+            return;
+        }
+
+        container.innerHTML = '<div class="empty-state"><p>AI jelölt keresés folyamatban...</p></div>';
+
+        var data = await apiGet('employer-match.php?job_id=' + jobId);
+
+        if (!data.success) {
+            container.innerHTML = '<div class="empty-state"><p>' + escapeHtml(data.message || 'Hiba történt.') + '</p></div>';
+            return;
+        }
+
+        var matches = data.matches || [];
+        if (matches.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>Nem található jelölt a rendszerben.</p></div>';
+            return;
+        }
+
+        var html = '<div class="employer-ai-results mt-2">';
+        matches.forEach(function(m) {
+            var scoreClass = 'score-low';
+            if (m.score >= 70) scoreClass = 'score-high';
+            else if (m.score >= 40) scoreClass = 'score-medium';
+
+            var reasonsBlock = '';
+            if (Array.isArray(m.reasons) && m.reasons.length > 0) {
+                reasonsBlock =
+                    '<div class="ai-reasons-block">' +
+                        '<div class="ai-reasons-title">Miért ezt a pontszámot kapta?</div>' +
+                        '<div class="ai-reasons-chips" role="list">';
+                m.reasons.forEach(function(r) {
+                    reasonsBlock += '<span class="ai-reason-chip" role="listitem">' + escapeHtml(String(r)) + '</span>';
+                });
+                reasonsBlock += '</div></div>';
+            }
+
+            html +=
+                '<div class="list-item employer-ai-candidate">' +
+                    '<div style="flex: 1; min-width: 0;">' +
+                        '<div class="card-header-row">' +
+                            '<strong>' + escapeHtml(m.nev) + '</strong>' +
+                            '<span class="match-score ' + scoreClass + '">' + m.score + '% egyezés</span>' +
+                        '</div>' +
+                        reasonsBlock +
+                        '<div class="text-muted">' +
+                            'Készségek: ' + escapeHtml(m.keszsegek || '-') +
+                        '</div>' +
+                        '<div class="text-muted">' +
+                            'Végzettség: ' + escapeHtml(m.vegzettseg || '-') +
+                            ' &middot; Tapasztalat: ' + escapeHtml(m.munkatapasztalat || '-') +
+                        '</div>' +
+                    '</div>' +
+                    '<a href="messages.html?partner_id=' + m.candidate_id +
+                        '&partner_role=employee" class="btn btn-sm btn-secondary">Üzenet</a>' +
+                '</div>';
+        });
+        html += '</div>';
+
+        container.innerHTML = html;
+    }
+
+    async function init() {
+        var user = await checkSession();
+        if (!user || user.role !== 'employer') {
+            window.location.href = 'login.html';
+            return;
+        }
+        await renderNavbar();
+        loadMyJobs();
+        loadApplications();
+    }
+
+    async function postJob(event) {
+        event.preventDefault();
+
+        var body = {
+            megnevezes: document.getElementById('j-title').value,
+            leiras: document.getElementById('j-desc').value,
+            fizetes: parseFloat(document.getElementById('j-salary').value),
+            helyszin: document.getElementById('j-location').value,
+            munka_tipus: document.getElementById('j-type').value,
+            elvart_tapasztalat: document.getElementById('j-exp').value,
+            munkavegzes_modja: document.getElementById('j-mode').value,
+            munkakezdes: document.getElementById('j-start').value
+        };
+
+        var data = await apiPost('jobs.php', body);
+
+        if (data.success) {
+            showToast(data.message, 'success');
+            event.target.reset();
+            loadMyJobs();
+        } else {
+            var msg = data.errors ? data.errors.join('\n') : data.message;
+            showToast(msg, 'error');
+        }
+    }
+
+    // Jelentkezés-státuszok (egyezzenek az api/apply.php listájával)
+    var APPLICATION_STATUSES = [
+        'jelentkezett',
+        'előszűrt',
+        'interjúra hívva',
+        'elutasítva',
+        'felvéve'
+    ];
+
+    /** Adatbázis DATETIME → datetime-local input érték (YYYY-MM-DDTHH:mm) */
+    function dbDatetimeToDatetimeLocal(dbStr) {
+        if (!dbStr) return '';
+        var s = String(dbStr).replace(' ', 'T').trim();
+        return s.length >= 16 ? s.substring(0, 16) : '';
+    }
+
+    function buildApplicationStatusSelectOptions(currentAllapot) {
+        var html = '';
+        var found = false;
+        APPLICATION_STATUSES.forEach(function(s) {
+            if (s === currentAllapot) found = true;
+            var sel = (s === currentAllapot) ? ' selected' : '';
+            html += '<option value="' + escapeHtml(s) + '"' + sel + '>' + escapeHtml(s) + '</option>';
+        });
+        if (!found && currentAllapot) {
+            html = '<option value="' + escapeHtml(currentAllapot) + '" selected>' +
+                escapeHtml(currentAllapot) + '</option>' + html;
+        }
+        return html;
+    }
+
+    async function handleEmployerApplicationStatus(selectEl, applicationId) {
+        var newStatus = selectEl.value;
+        var listItem = selectEl.closest('.list-item');
+        var interjuInput = listItem ? listItem.querySelector('.employer-interju-input') : null;
+
+        var payload = {
+            action: 'update_application_status',
+            application_id: applicationId,
+            allapot: newStatus
+        };
+        if (newStatus === 'interjúra hívva' && interjuInput) {
+            payload.interju_idopont = interjuInput.value || '';
+        }
+
+        selectEl.disabled = true;
+        var data = await apiPost('apply.php', payload);
+        selectEl.disabled = false;
+        if (data.success) {
+            var statusToShow = data.allapot ? data.allapot : newStatus;
+            var badgeRow = selectEl.parentElement && selectEl.parentElement.previousElementSibling;
+            if (badgeRow) {
+                var badgeEl = badgeRow.querySelector('.badge');
+                if (badgeEl) {
+                    badgeEl.outerHTML = getStatusBadge(statusToShow);
+                }
+            }
+            var interjuWrap = selectEl.parentElement && selectEl.parentElement.nextElementSibling;
+            if (interjuWrap && interjuWrap.classList.contains('employer-interju-wrap')) {
+                if (statusToShow === 'interjúra hívva') {
+                    interjuWrap.style.display = 'flex';
+                    if (interjuInput) {
+                        if (data.interju_idopont) {
+                            interjuInput.value = dbDatetimeToDatetimeLocal(data.interju_idopont);
+                        } else {
+                            interjuInput.value = '';
+                        }
+                    }
+                } else {
+                    interjuWrap.style.display = 'none';
+                    if (interjuInput) interjuInput.value = '';
+                }
+            }
+            showToast(data.message || 'Állapot mentve.', 'success');
+        } else {
+            showToast(data.message || 'A mentés nem sikerült.', 'error');
+            loadApplications();
+        }
+    }
+
+    async function handleEmployerInterjuDatetimeSave(inputEl, applicationId) {
+        var listItem = inputEl.closest('.list-item');
+        var selectEl = listItem ? listItem.querySelector('select.employer-app-status-select') : null;
+        if (!selectEl || selectEl.value !== 'interjúra hívva') {
+            return;
+        }
+        inputEl.disabled = true;
+        var data = await apiPost('apply.php', {
+            action: 'update_application_status',
+            application_id: applicationId,
+            allapot: 'interjúra hívva',
+            interju_idopont: inputEl.value || ''
+        });
+        inputEl.disabled = false;
+        if (data.success) {
+            if (data.interju_idopont) {
+                inputEl.value = dbDatetimeToDatetimeLocal(data.interju_idopont);
+            } else {
+                inputEl.value = '';
+            }
+            showToast(data.message || 'Interjú időpont mentve.', 'success');
+        } else {
+            showToast(data.message || 'Nem sikerült menteni az időpontot.', 'error');
+            loadApplications();
+        }
+    }
+
+    async function loadApplications() {
+        var data = await apiGet('apply.php');
+        var container = document.getElementById('applicationsList');
+
+        if (!data.success || data.applications.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>Még nem érkezett jelentkezés.</p></div>';
+            return;
+        }
+
+        var html = '';
+        data.applications.forEach(function(app) {
+            var selectOptions = buildApplicationStatusSelectOptions(app.allapot);
+            var showInterju = app.allapot === 'interjúra hívva';
+            var interjuDisplay = showInterju
+                ? 'display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:flex-end;margin-top:2px;'
+                : 'display:none;';
+            var interjuValue = dbDatetimeToDatetimeLocal(app.interju_idopont || '');
+            html +=
+                '<div class="list-item employer-app-row">' +
+                    '<div class="employer-app-main">' +
+                        '<strong>' + escapeHtml(app.nev) + '</strong>' +
+                        ' &mdash; ' + escapeHtml(app.email) +
+                        '<div class="text-muted">' +
+                            'Állás: ' + escapeHtml(app.megnevezes) +
+                            ' &middot; ' + formatDate(app.datum) +
+                        '</div>' +
+                        '<div class="text-muted">' +
+                            'Végzettség: ' + escapeHtml(app.vegzettseg || '-') +
+                            ' &middot; Tapasztalat: ' + escapeHtml(app.munkatapasztalat || '-') +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="employer-app-actions">' +
+                        '<div class="employer-app-actions-row">' +
+                            getStatusBadge(app.allapot) +
+                        '</div>' +
+                        '<div class="employer-app-actions-row">' +
+                            '<label class="text-muted employer-app-label">Állapot módosítása:</label>' +
+                            '<select class="employer-app-status-select form-select-inline" ' +
+                                'onchange="handleEmployerApplicationStatus(this, ' + app.id + ')">' +
+                                selectOptions +
+                            '</select>' +
+                        '</div>' +
+                        '<div class="employer-interju-wrap text-muted" style="' + interjuDisplay + '">' +
+                            '<label class="employer-app-label">Interjú időpontja:</label>' +
+                            '<input type="datetime-local" class="employer-interju-input" ' +
+                                'value="' + escapeHtml(interjuValue) + '" ' +
+                                'onchange="handleEmployerInterjuDatetimeSave(this, ' + app.id + ')">' +
+                        '</div>' +
+                        '<div class="employer-app-actions-row">' +
+                            '<a href="messages.html?partner_id=' + app.munkavallalo_id +
+                                '&partner_role=employee" class="btn btn-sm btn-secondary">Üzenet</a>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        });
+        container.innerHTML = html;
+    }
+
+    init();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regisztráció - QuickHire</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="auth-page">
+
+<div class="auth-card" style="max-width: 520px;">
+    <div class="card">
+        <h1>Regisztráció</h1>
+        <p class="subtitle">Hozd létre a fiókodat</p>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('employee')">Munkavállaló</button>
+            <button class="tab" onclick="switchTab('employer')">Munkáltató</button>
+        </div>
+
+        <!-- Munkavállaló regisztráció -->
+        <div id="tab-employee" class="tab-content active">
+            <form onsubmit="handleRegister(event, 'employee')">
+                <div class="form-group">
+                    <label>Teljes név *</label>
+                    <input type="text" id="reg-nev" required>
+                </div>
+                <div class="form-group">
+                    <label>Életkor *</label>
+                    <input type="number" id="reg-eletkor" min="16" max="100" required>
+                </div>
+                <div class="form-group">
+                    <label>Végzettség *</label>
+                    <input type="text" id="reg-vegzettseg" placeholder="pl. Érettségi, BSc, MSc" required>
+                </div>
+                <div class="form-group">
+                    <label>Munkatapasztalat *</label>
+                    <input type="text" id="reg-munkatapasztalat" placeholder="pl. 2 év, vagy Nincs" required>
+                </div>
+                <div class="form-group">
+                    <label>E-mail *</label>
+                    <input type="email" id="reg-email" required>
+                </div>
+                <div class="form-group">
+                    <label>Jelszó * (min. 6 karakter)</label>
+                    <input type="password" id="reg-jelszo" minlength="6" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Regisztráció</button>
+            </form>
+        </div>
+
+        <!-- Munkáltató regisztráció -->
+        <div id="tab-employer" class="tab-content">
+            <form onsubmit="handleRegister(event, 'employer')">
+                <div class="form-group">
+                    <label>Cégnév *</label>
+                    <input type="text" id="reg-cegnev" required>
+                </div>
+                <div class="form-group">
+                    <label>Székhely *</label>
+                    <input type="text" id="reg-szekhely" required>
+                </div>
+                <div class="form-group">
+                    <label>Cégjegyzékszám *</label>
+                    <input type="text" id="reg-cegjegyzekszam" required>
+                </div>
+                <div class="form-group">
+                    <label>Tevékenységi kör *</label>
+                    <input type="text" id="reg-tevekenysegi_kor" required>
+                </div>
+                <div class="form-group">
+                    <label>Adószám *</label>
+                    <input type="text" id="reg-adoszam" required>
+                </div>
+                <div class="form-group">
+                    <label>E-mail *</label>
+                    <input type="email" id="reg-emr-email" required>
+                </div>
+                <div class="form-group">
+                    <label>Jelszó * (min. 6 karakter)</label>
+                    <input type="password" id="reg-emr-jelszo" minlength="6" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Regisztráció</button>
+            </form>
+        </div>
+
+        <div class="auth-footer">
+            Van már fiókod? <a href="login.html">Jelentkezz be</a>
+        </div>
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+    function switchTab(tab) {
+        var tabs = document.querySelectorAll('.tab');
+        var contents = document.querySelectorAll('.tab-content');
+
+        tabs.forEach(function(t) { t.classList.remove('active'); });
+        contents.forEach(function(c) { c.classList.remove('active'); });
+
+        if (tab === 'employee') {
+            tabs[0].classList.add('active');
+            document.getElementById('tab-employee').classList.add('active');
+        } else {
+            tabs[1].classList.add('active');
+            document.getElementById('tab-employer').classList.add('active');
+        }
+    }
+
+    async function handleRegister(event, role) {
+        event.preventDefault();
+
+        var body;
+
+        if (role === 'employee') {
+            body = {
+                role: 'employee',
+                nev: document.getElementById('reg-nev').value,
+                eletkor: parseInt(document.getElementById('reg-eletkor').value),
+                vegzettseg: document.getElementById('reg-vegzettseg').value,
+                munkatapasztalat: document.getElementById('reg-munkatapasztalat').value,
+                email: document.getElementById('reg-email').value,
+                jelszo: document.getElementById('reg-jelszo').value
+            };
+        } else {
+            body = {
+                role: 'employer',
+                cegnev: document.getElementById('reg-cegnev').value,
+                szekhely: document.getElementById('reg-szekhely').value,
+                cegjegyzekszam: document.getElementById('reg-cegjegyzekszam').value,
+                tevekenysegi_kor: document.getElementById('reg-tevekenysegi_kor').value,
+                adoszam: document.getElementById('reg-adoszam').value,
+                email: document.getElementById('reg-emr-email').value,
+                jelszo: document.getElementById('reg-emr-jelszo').value
+            };
+        }
+
+        var data = await apiPost('register.php', body);
+
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(function() { window.location.href = 'login.html'; }, 1500);
+        } else {
+            var msg = data.errors ? data.errors.join('\n') : data.message;
+            showToast(msg, 'error');
+        }
+    }
+</script>
+
+</body>
+</html>
